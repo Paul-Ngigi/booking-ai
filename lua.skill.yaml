@@ -1,7 +1,10 @@
 agent:
   agentId: baseAgent_agent_1773589447623_z7arc3k6k
   orgId: 124a22f4-383c-4e14-8e66-e109d35be86c
-skills: []
+skills:
+  - name: appointment-scheduling
+    skillId: f8d4d75e-74a0-4b02-a784-4f5f29116728
+    version: 1.0.0
 webhooks: []
 jobs: []
 preprocessors: []

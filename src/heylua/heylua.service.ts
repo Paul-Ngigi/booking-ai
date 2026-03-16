@@ -1,15 +1,8 @@
-import {
-  BadGatewayException,
-  Inject,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
-import { ConfigType } from '@nestjs/config';
-import axios, { AxiosInstance, AxiosError } from 'axios';
-import { heyluaConfig } from './heylua.config';
+import { Injectable, Logger } from '@nestjs/common';
+import { AI } from 'lua-cli';
 
 export interface SendMessageParams {
-  message: string;  
+  message: string;
   sessionId?: string;
 }
 
@@ -21,59 +14,27 @@ export interface SendMessageResult {
 @Injectable()
 export class HeyluaService {
   private readonly logger = new Logger(HeyluaService.name);
-  private readonly http: AxiosInstance;
-
-  constructor(
-    @Inject(heyluaConfig.KEY)
-    private readonly config: ConfigType<typeof heyluaConfig>,
-  ) {
-    this.http = axios.create({
-      baseURL: this.config.baseUrl,
-      timeout: 30_000,
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.config.apiKey}`,
-      },
-    });
-  }
 
   async sendMessage(params: SendMessageParams): Promise<SendMessageResult> {
     const { message, sessionId } = params;
 
     this.logger.debug(
-      `Sending message to agent ${this.config.agentId}` +
-        (sessionId ? ` (session: ${sessionId})` : ' (new session)'),
+      `Sending message${sessionId ? ` (session: ${sessionId})` : ' (new session)'}`,
     );
 
     try {
-      const { data } = await this.http.post<SendMessageResult>(
-        `/v1/agents/${this.config.agentId}/chat`,
-        { message, sessionId },
+      const reply = await AI.generate(
+        'You are a helpful booking assistant.', // your agent persona
+        [{ type: 'text', text: message }],
       );
 
-      this.logger.debug(`Received reply for session ${data.sessionId}`);
-      return data;
+      const newSessionId = sessionId ?? crypto.randomUUID();
+
+      this.logger.debug(`Received reply for session ${newSessionId}`);
+      return { reply, sessionId: newSessionId };
     } catch (error) {
-      throw this.mapError(error as AxiosError);
+      this.logger.error(`Lua AI error: ${(error as Error).message}`);
+      throw new Error('The AI assistant is temporarily unavailable');
     }
-  }
-
-  private mapError(error: AxiosError): BadGatewayException {
-    const upstream = error.response?.data as
-      | Record<string, unknown>
-      | undefined;
-    const detail =
-      (upstream?.message as string) ??
-      (upstream?.error as string) ??
-      error.message ??
-      'Unknown upstream error';
-
-    this.logger.error(
-      `HeyLua API error [${error.response?.status ?? 'network'}]: ${detail}`,
-    );
-
-    return new BadGatewayException(
-      `The AI assistant is temporarily unavailable: ${detail}`,
-    );
   }
 }
