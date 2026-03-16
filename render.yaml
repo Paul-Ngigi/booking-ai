@@ -3,7 +3,7 @@ services:
     name: booking-ai
     env: docker
     envVars:
-      - key: HEYLUA_API_KEY
+      - key: LUA_API_KEY
         sync: false  
       - key: NODE_ENV
         value: production
